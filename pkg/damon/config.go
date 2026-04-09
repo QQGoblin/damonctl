@@ -22,15 +22,15 @@ type StartConfig struct {
 }
 
 type SchemeConfig struct {
-	Action        string          `json:"action"`
-	MinSzBytes    int             `json:"min_sz_bytes"`
-	MaxSzBytes    int             `json:"max_sz_bytes"`
-	MinNrAccesses int             `json:"min_nr_accesses"`
-	MaxNrAccesses int             `json:"max_nr_accesses"`
-	MinAge        int             `json:"min_age"`
-	MaxAge        int             `json:"max_age"`
-	Quota         QuotaConfig     `json:"quota"`
-	Watermarks    WatermarkConfig `json:"watermarks"`
+	Action        string           `json:"action"`
+	MinSzBytes    int              `json:"min_sz_bytes"`
+	MaxSzBytes    int              `json:"max_sz_bytes"`
+	MinNrAccesses int              `json:"min_nr_accesses"`
+	MaxNrAccesses int              `json:"max_nr_accesses"`
+	MinAge        int              `json:"min_age"`
+	MaxAge        int              `json:"max_age"`
+	Quota         *QuotaConfig     `json:"quota,omitempty"`
+	Watermarks    *WatermarkConfig `json:"watermarks,omitempty"`
 }
 
 type QuotaConfig struct {

@@ -113,38 +113,42 @@ func (k *Kdamon) writeScheme(schemeID int, cfg SchemeConfig) error {
 		}
 	}
 
-	qWrites := []struct {
-		path string
-		val  int
-	}{
-		{p.QuotaMs(id, schemeID), cfg.Quota.Ms},
-		{p.QuotaBytes(id, schemeID), cfg.Quota.Bytes},
-		{p.QuotaResetIntervalMs(id, schemeID), cfg.Quota.ResetIntervalMs},
-		{p.WeightSz(id, schemeID), cfg.Quota.WeightSz},
-		{p.WeightNrAccesses(id, schemeID), cfg.Quota.WeightAccesses},
-		{p.WeightAge(id, schemeID), cfg.Quota.WeightAge},
-	}
-	for _, w := range qWrites {
-		if err := utils.WriteInt(w.path, w.val); err != nil {
-			return err
+	if q := cfg.Quota; q != nil {
+		qWrites := []struct {
+			path string
+			val  int
+		}{
+			{p.QuotaMs(id, schemeID), q.Ms},
+			{p.QuotaBytes(id, schemeID), q.Bytes},
+			{p.QuotaResetIntervalMs(id, schemeID), q.ResetIntervalMs},
+			{p.WeightSz(id, schemeID), q.WeightSz},
+			{p.WeightNrAccesses(id, schemeID), q.WeightAccesses},
+			{p.WeightAge(id, schemeID), q.WeightAge},
+		}
+		for _, w := range qWrites {
+			if err := utils.WriteInt(w.path, w.val); err != nil {
+				return err
+			}
 		}
 	}
 
-	if err := utils.WriteString(p.WatermarkMetric(id, schemeID), cfg.Watermarks.Metric); err != nil {
-		return err
-	}
-	wmWrites := []struct {
-		path string
-		val  int
-	}{
-		{p.WatermarkIntervalUs(id, schemeID), cfg.Watermarks.IntervalUs},
-		{p.WatermarkHigh(id, schemeID), cfg.Watermarks.High},
-		{p.WatermarkMid(id, schemeID), cfg.Watermarks.Mid},
-		{p.WatermarkLow(id, schemeID), cfg.Watermarks.Low},
-	}
-	for _, w := range wmWrites {
-		if err := utils.WriteInt(w.path, w.val); err != nil {
+	if wm := cfg.Watermarks; wm != nil {
+		if err := utils.WriteString(p.WatermarkMetric(id, schemeID), wm.Metric); err != nil {
 			return err
+		}
+		wmWrites := []struct {
+			path string
+			val  int
+		}{
+			{p.WatermarkIntervalUs(id, schemeID), wm.IntervalUs},
+			{p.WatermarkHigh(id, schemeID), wm.High},
+			{p.WatermarkMid(id, schemeID), wm.Mid},
+			{p.WatermarkLow(id, schemeID), wm.Low},
+		}
+		for _, w := range wmWrites {
+			if err := utils.WriteInt(w.path, w.val); err != nil {
+				return err
+			}
 		}
 	}
 
