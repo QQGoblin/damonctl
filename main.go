@@ -24,7 +24,7 @@ func main() {
 	rootCmd.AddCommand(cmd.InitCmd)
 	rootCmd.AddCommand(cmd.StartCmd)
 	rootCmd.AddCommand(cmd.StopCmd)
-	rootCmd.AddCommand(cmd.ListCmd)
+	rootCmd.AddCommand(cmd.ShowCmd)
 	rootCmd.AddCommand(cmd.DumpConfigCmd)
 	Execute()
 }

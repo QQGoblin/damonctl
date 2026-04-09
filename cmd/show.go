@@ -8,8 +8,8 @@ import (
 	"github.com/QQGoblin/damonctl/pkg/damon"
 )
 
-var ListCmd = &cobra.Command{
-	Use:   "list",
+var ShowCmd = &cobra.Command{
+	Use:   "show",
 	Short: "Show all kdamond slot states",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		slots, err := damon.ListSlots()
@@ -26,8 +26,8 @@ var ListCmd = &cobra.Command{
 			kthread := "-"
 			if s.KdamondPid > 0 {
 				kthread = fmt.Sprintf("%d", s.KdamondPid)
+				fmt.Printf("%-4d  %-8s  %-10s\n", s.ID, s.State, kthread)
 			}
-			fmt.Printf("%-4d  %-8s  %-10s\n", s.ID, s.State, kthread)
 		}
 		return nil
 	},

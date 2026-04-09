@@ -67,7 +67,7 @@ func DefaultSchemeConfig() SchemeConfig {
 		MaxSzBytes:    16 * 1024 * 1024 * 1024,
 		MinNrAccesses: 0,
 		MaxNrAccesses: 0,
-		MinAge:        60,
+		MinAge:        30,
 		MaxAge:        1<<31 - 1,
 	}
 }
