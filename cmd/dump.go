@@ -13,7 +13,7 @@ import (
 var dumpConfigOutput string
 
 var DumpConfigCmd = &cobra.Command{
-	Use:   "dump-config",
+	Use:   "dump",
 	Short: "Export default configuration as JSON",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		data, err := json.MarshalIndent(damon.DefaultStartConfig(), "", "  ")
