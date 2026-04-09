@@ -64,7 +64,7 @@ func DefaultSchemeConfig() SchemeConfig {
 	return SchemeConfig{
 		Action:        "pageout",
 		MinSzBytes:    4096,
-		MaxSzBytes:    1 << 62,
+		MaxSzBytes:    16 * 1024 * 1024 * 1024,
 		MinNrAccesses: 0,
 		MaxNrAccesses: 0,
 		MinAge:        600,
