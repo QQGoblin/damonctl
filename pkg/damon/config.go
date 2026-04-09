@@ -52,11 +52,11 @@ type WatermarkConfig struct {
 
 func DefaultMonitoringAttrs() MonitoringAttrs {
 	return MonitoringAttrs{
-		SampleUs:   5_000,
-		AggrUs:     100_000,
+		SampleUs:   50_000,
+		AggrUs:     1_000_000,
 		UpdateUs:   1_000_000,
-		MinRegions: 10,
-		MaxRegions: 1000,
+		MinRegions: 128,
+		MaxRegions: 4096,
 	}
 }
 
@@ -69,21 +69,6 @@ func DefaultSchemeConfig() SchemeConfig {
 		MaxNrAccesses: 0,
 		MinAge:        600,
 		MaxAge:        1<<31 - 1,
-		Quota: QuotaConfig{
-			Ms:              10,
-			Bytes:           128 << 20,
-			ResetIntervalMs: 1000,
-			WeightSz:        0,
-			WeightAccesses:  0,
-			WeightAge:       1,
-		},
-		Watermarks: WatermarkConfig{
-			Metric:     "free_mem_rate",
-			IntervalUs: 5_000_000,
-			High:       500,
-			Mid:        400,
-			Low:        200,
-		},
 	}
 }
 
