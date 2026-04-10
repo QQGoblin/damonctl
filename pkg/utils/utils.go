@@ -33,3 +33,12 @@ func WriteString(path, value string) error {
 func WriteInt(path string, value int) error {
 	return WriteString(path, strconv.Itoa(value))
 }
+
+func ReadUint64(path string) (uint64, error) {
+	s, err := ReadString(path)
+	if err != nil {
+		return 0, err
+	}
+	s = strings.TrimSpace(s)
+	return strconv.ParseUint(s, 10, 64)
+}

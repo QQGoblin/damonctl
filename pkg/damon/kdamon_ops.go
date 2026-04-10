@@ -2,6 +2,9 @@ package damon
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 
 	"github.com/QQGoblin/damonctl/pkg/utils"
 )
@@ -177,4 +180,76 @@ func (k *Kdamon) turnOn() error {
 
 func (k *Kdamon) turnOff() error {
 	return utils.WriteString(k.paths.KdamondState(k.slotID), "off")
+}
+
+func (k *Kdamon) UpdateSchemesTried() error {
+	return utils.WriteString(k.paths.KdamondState(k.slotID), "update_schemes_tried_regions")
+}
+
+func (k *Kdamon) ReadTriedRegions() ([]SchemeTriedRegions, error) {
+	p, id := k.paths, k.slotID
+
+	nrSchemes, err := utils.ReadInt(p.NrSchemes(id))
+	if err != nil {
+		return nil, fmt.Errorf("read nr_schemes: %w", err)
+	}
+
+	results := make([]SchemeTriedRegions, 0, nrSchemes)
+	for si := 0; si < nrSchemes; si++ {
+		regions, err := k.schemeTriedRegions(si)
+		if err != nil {
+			return nil, fmt.Errorf("scheme %d tried_regions: %w", si, err)
+		}
+		results = append(results, SchemeTriedRegions{
+			SchemeID: si,
+			Regions:  regions,
+		})
+	}
+	return results, nil
+}
+
+func (k *Kdamon) schemeTriedRegions(schemeID int) ([]TriedRegionInfo, error) {
+	p, id := k.paths, k.slotID
+	trDir := filepath.Join(p.ctx(id), "schemes", strconv.Itoa(schemeID), "tried_regions")
+
+	entries, err := os.ReadDir(trDir)
+	if err != nil {
+		return nil, fmt.Errorf("read dir %s: %w", trDir, err)
+	}
+
+	var regions []TriedRegionInfo
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		regionID, err := strconv.Atoi(e.Name())
+		if err != nil {
+			continue
+		}
+
+		startAddr, err := utils.ReadUint64(p.TriedRegionStart(id, schemeID, regionID))
+		if err != nil {
+			return nil, fmt.Errorf("region %d start: %w", regionID, err)
+		}
+		endAddr, err := utils.ReadUint64(p.TriedRegionEnd(id, schemeID, regionID))
+		if err != nil {
+			return nil, fmt.Errorf("region %d end: %w", regionID, err)
+		}
+		nrAccesses, err := utils.ReadInt(p.TriedRegionNrAccesses(id, schemeID, regionID))
+		if err != nil {
+			return nil, fmt.Errorf("region %d nr_accesses: %w", regionID, err)
+		}
+		age, err := utils.ReadInt(p.TriedRegionAge(id, schemeID, regionID))
+		if err != nil {
+			return nil, fmt.Errorf("region %d age: %w", regionID, err)
+		}
+
+		regions = append(regions, TriedRegionInfo{
+			Start:      startAddr,
+			End:        endAddr,
+			NrAccesses: nrAccesses,
+			Age:        age,
+		})
+	}
+	return regions, nil
 }

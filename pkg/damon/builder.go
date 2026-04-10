@@ -170,3 +170,19 @@ func (p PathBuilder) WatermarkMid(slotID, schemeID int) string {
 func (p PathBuilder) WatermarkLow(slotID, schemeID int) string {
 	return filepath.Join(p.ctx(slotID), "schemes", strconv.Itoa(schemeID), "watermarks", "low")
 }
+
+func (p PathBuilder) TriedRegionStart(slotID, schemeID, regionID int) string {
+	return filepath.Join(p.ctx(slotID), "schemes", strconv.Itoa(schemeID), "tried_regions", strconv.Itoa(regionID), "start")
+}
+
+func (p PathBuilder) TriedRegionEnd(slotID, schemeID, regionID int) string {
+	return filepath.Join(p.ctx(slotID), "schemes", strconv.Itoa(schemeID), "tried_regions", strconv.Itoa(regionID), "end")
+}
+
+func (p PathBuilder) TriedRegionNrAccesses(slotID, schemeID, regionID int) string {
+	return filepath.Join(p.ctx(slotID), "schemes", strconv.Itoa(schemeID), "tried_regions", strconv.Itoa(regionID), "nr_accesses")
+}
+
+func (p PathBuilder) TriedRegionAge(slotID, schemeID, regionID int) string {
+	return filepath.Join(p.ctx(slotID), "schemes", strconv.Itoa(schemeID), "tried_regions", strconv.Itoa(regionID), "age")
+}

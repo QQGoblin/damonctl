@@ -26,5 +26,6 @@ func main() {
 	rootCmd.AddCommand(cmd.StopCmd)
 	rootCmd.AddCommand(cmd.ShowCmd)
 	rootCmd.AddCommand(cmd.DumpConfigCmd)
+	rootCmd.AddCommand(cmd.SchemeStateCmd)
 	Execute()
 }

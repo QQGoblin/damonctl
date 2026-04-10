@@ -18,6 +18,18 @@ type SlotInfo struct {
 	KdamondPid int
 }
 
+type TriedRegionInfo struct {
+	Start      uint64
+	End        uint64
+	NrAccesses int
+	Age        int
+}
+
+type SchemeTriedRegions struct {
+	SchemeID int
+	Regions  []TriedRegionInfo
+}
+
 func NewKdamon(slotID int) *Kdamon {
 	return &Kdamon{slotID: slotID, paths: defaultPaths}
 }
