@@ -20,7 +20,7 @@ func (k *Kdamon) Start(pid int, cfg StartConfig) error {
 	if err := k.SetMonitoringAttrs(cfg.Attrs); err != nil {
 		return fmt.Errorf("set monitoring attrs: %w", err)
 	}
-	if err := k.setupTarget(pid); err != nil {
+	if err := k.setupTarget(pid, cfg.Ops); err != nil {
 		return fmt.Errorf("setup target: %w", err)
 	}
 	if err := k.SetSchemes(cfg.Schemes); err != nil {
@@ -166,12 +166,45 @@ func (k *Kdamon) setupContext(ops string) error {
 	return utils.WriteString(p.Operations(id), ops)
 }
 
-func (k *Kdamon) setupTarget(pid int) error {
+func (k *Kdamon) setupTarget(pid int, ops string) error {
+	if ops == "paddr" {
+		return k.setupPaddrTarget()
+	}
+	return k.setupVaddrTarget(pid)
+}
+
+func (k *Kdamon) setupVaddrTarget(pid int) error {
 	p, id := k.paths, k.slotID
 	if err := utils.WriteInt(p.NrTargets(id), 1); err != nil {
 		return fmt.Errorf("set nr_targets: %w", err)
 	}
 	return utils.WriteInt(p.PidTarget(id, 0), pid)
+}
+
+func (k *Kdamon) setupPaddrTarget() error {
+	p, id := k.paths, k.slotID
+	if err := utils.WriteInt(p.NrTargets(id), 1); err != nil {
+		return fmt.Errorf("set nr_targets: %w", err)
+	}
+
+	if err := utils.WriteInt(p.PidTarget(id, 0), 0); err != nil {
+		return fmt.Errorf("set pid_target: %w", err)
+	}
+
+	if err := utils.WriteInt(p.TargetNrRegions(id, 0), 1); err != nil {
+		return fmt.Errorf("set nr_regions: %w", err)
+	}
+
+	hostTotalMemory, err := utils.HostMemTotal()
+	if err != nil {
+		return fmt.Errorf("get host_total_memory: %w", err)
+	}
+
+	if err := utils.WriteInt(p.RegionStart(id, 0, 0), 0); err != nil {
+		return fmt.Errorf("set nr_regions: %w", err)
+	}
+
+	return utils.WriteInt64(p.RegionEnd(id, 0, 0), hostTotalMemory)
 }
 
 func (k *Kdamon) turnOn() error {

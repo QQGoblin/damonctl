@@ -54,7 +54,7 @@ func DefaultMonitoringAttrs() MonitoringAttrs {
 	return MonitoringAttrs{
 		SampleUs:   50_000,
 		AggrUs:     1_000_000,
-		UpdateUs:   1_000_000,
+		UpdateUs:   60_000_000,
 		MinRegions: 128,
 		MaxRegions: 4096,
 	}
@@ -62,12 +62,12 @@ func DefaultMonitoringAttrs() MonitoringAttrs {
 
 func DefaultSchemeConfig() SchemeConfig {
 	return SchemeConfig{
-		Action:        "pageout",
+		Action:        "stat",
 		MinSzBytes:    4096,
 		MaxSzBytes:    16 * 1024 * 1024 * 1024,
 		MinNrAccesses: 0,
-		MaxNrAccesses: 0,
-		MinAge:        60,
+		MaxNrAccesses: 65535,
+		MinAge:        0,
 		MaxAge:        1<<31 - 1,
 	}
 }

@@ -24,9 +24,6 @@ Use -config to specify a JSON configuration file. When omitted, built-in
 defaults are used. The JSON file may contain any subset of fields; unspecified
 fields keep their default values.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if startPid <= 0 {
-			return fmt.Errorf("-pid is required")
-		}
 
 		cfg := damon.DefaultStartConfig()
 		if startConfig != "" {
@@ -35,6 +32,10 @@ fields keep their default values.`,
 			if err != nil {
 				return fmt.Errorf("start: %w", err)
 			}
+		}
+
+		if cfg.Ops == "vaddr" && startPid <= 0 {
+			return fmt.Errorf("-pid is required")
 		}
 
 		slotID, err := damon.FindFreeSlot()
@@ -55,6 +56,4 @@ fields keep their default values.`,
 func init() {
 	StartCmd.Flags().IntVar(&startPid, "pid", 0, "target process PID (required)")
 	StartCmd.Flags().StringVar(&startConfig, "config", "", "path to JSON configuration file")
-
-	_ = StartCmd.MarkFlagRequired("pid")
 }

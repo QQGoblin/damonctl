@@ -95,6 +95,18 @@ func (p PathBuilder) PidTarget(slotID, targetID int) string {
 	return filepath.Join(p.ctx(slotID), "targets", strconv.Itoa(targetID), "pid_target")
 }
 
+func (p PathBuilder) TargetNrRegions(slotID, targetID int) string {
+	return filepath.Join(p.ctx(slotID), "targets", strconv.Itoa(targetID), "regions", "nr_regions")
+}
+
+func (p PathBuilder) RegionStart(slotID, targetID, regionID int) string {
+	return filepath.Join(p.ctx(slotID), "targets", strconv.Itoa(targetID), "regions", strconv.Itoa(regionID), "start")
+}
+
+func (p PathBuilder) RegionEnd(slotID, targetID, regionID int) string {
+	return filepath.Join(p.ctx(slotID), "targets", strconv.Itoa(targetID), "regions", strconv.Itoa(regionID), "end")
+}
+
 func (p PathBuilder) NrSchemes(slotID int) string {
 	return filepath.Join(p.ctx(slotID), "schemes", "nr_schemes")
 }
