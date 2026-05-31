@@ -20,7 +20,7 @@ func (k *Kdamon) Start(pid int, cfg StartConfig) error {
 	if err := k.SetMonitoringAttrs(cfg.Attrs); err != nil {
 		return fmt.Errorf("set monitoring attrs: %w", err)
 	}
-	if err := k.setupTarget(pid, cfg.Ops); err != nil {
+	if err := k.setupTarget(pid, cfg); err != nil {
 		return fmt.Errorf("setup target: %w", err)
 	}
 	if err := k.SetSchemes(cfg.Schemes); err != nil {
@@ -166,9 +166,9 @@ func (k *Kdamon) setupContext(ops string) error {
 	return utils.WriteString(p.Operations(id), ops)
 }
 
-func (k *Kdamon) setupTarget(pid int, ops string) error {
-	if ops == "paddr" {
-		return k.setupPaddrTarget()
+func (k *Kdamon) setupTarget(pid int, cfg StartConfig) error {
+	if cfg.Ops == "paddr" {
+		return k.setupPaddrTarget(cfg.PaddrRegions)
 	}
 	return k.setupVaddrTarget(pid)
 }
@@ -181,7 +181,7 @@ func (k *Kdamon) setupVaddrTarget(pid int) error {
 	return utils.WriteInt(p.PidTarget(id, 0), pid)
 }
 
-func (k *Kdamon) setupPaddrTarget() error {
+func (k *Kdamon) setupPaddrTarget(regions []AddrRange) error {
 	p, id := k.paths, k.slotID
 	if err := utils.WriteInt(p.NrTargets(id), 1); err != nil {
 		return fmt.Errorf("set nr_targets: %w", err)
@@ -191,20 +191,33 @@ func (k *Kdamon) setupPaddrTarget() error {
 		return fmt.Errorf("set pid_target: %w", err)
 	}
 
-	if err := utils.WriteInt(p.TargetNrRegions(id, 0), 1); err != nil {
+	if len(regions) == 0 {
+		hostTotalMemory, err := utils.HostMemTotal()
+		if err != nil {
+			return fmt.Errorf("get host_total_memory: %w", err)
+		}
+		regions = []AddrRange{{Start: 0, End: uint64(hostTotalMemory)}}
+	}
+
+	for i, r := range regions {
+		if r.End <= r.Start {
+			return fmt.Errorf("paddr region %d invalid: end (0x%x) must be > start (0x%x)", i, r.End, r.Start)
+		}
+	}
+
+	if err := utils.WriteInt(p.TargetNrRegions(id, 0), len(regions)); err != nil {
 		return fmt.Errorf("set nr_regions: %w", err)
 	}
 
-	hostTotalMemory, err := utils.HostMemTotal()
-	if err != nil {
-		return fmt.Errorf("get host_total_memory: %w", err)
+	for i, r := range regions {
+		if err := utils.WriteUint64(p.RegionStart(id, 0, i), r.Start); err != nil {
+			return fmt.Errorf("set region %d start: %w", i, err)
+		}
+		if err := utils.WriteUint64(p.RegionEnd(id, 0, i), r.End); err != nil {
+			return fmt.Errorf("set region %d end: %w", i, err)
+		}
 	}
-
-	if err := utils.WriteInt(p.RegionStart(id, 0, 0), 0); err != nil {
-		return fmt.Errorf("set nr_regions: %w", err)
-	}
-
-	return utils.WriteInt64(p.RegionEnd(id, 0, 0), hostTotalMemory)
+	return nil
 }
 
 func (k *Kdamon) turnOn() error {

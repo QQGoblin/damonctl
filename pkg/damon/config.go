@@ -16,9 +16,18 @@ type MonitoringAttrs struct {
 }
 
 type StartConfig struct {
-	Ops     string          `json:"ops"`
-	Attrs   MonitoringAttrs `json:"monitoring_attrs"`
-	Schemes []SchemeConfig  `json:"schemes"`
+	Ops          string          `json:"ops"`
+	Attrs        MonitoringAttrs `json:"monitoring_attrs"`
+	Schemes      []SchemeConfig  `json:"schemes"`
+	PaddrRegions []AddrRange     `json:"paddr_regions,omitempty"`
+}
+
+// AddrRange describes a physical address range [Start, End) for paddr targets.
+// Start and End are byte offsets in decimal, matching the format used by the
+// DAMON sysfs interface (regions/*/start, regions/*/end).
+type AddrRange struct {
+	Start uint64 `json:"start"`
+	End   uint64 `json:"end"`
 }
 
 type SchemeConfig struct {

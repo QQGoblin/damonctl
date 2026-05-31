@@ -27,6 +27,15 @@ kdamond 配置文件格式如下：
     "min_regions": 10,
     "max_regions": 1000
   },
+  "paddr_regions": [
+    {
+      "start": 4294967296,
+      "end": 8589934592
+    },
+    { "start": 8589934592,
+      "end": 17179869184
+    }
+  ]
   "schemes": [
     {
       "action": "pageout",
@@ -55,4 +64,3 @@ kdamond 配置文件格式如下：
   ]
 }
 ```
-

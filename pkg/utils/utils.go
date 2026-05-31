@@ -38,6 +38,10 @@ func WriteInt64(path string, value int64) error {
 	return WriteString(path, strconv.FormatInt(value, 10))
 }
 
+func WriteUint64(path string, value uint64) error {
+	return WriteString(path, strconv.FormatUint(value, 10))
+}
+
 func ReadUint64(path string) (uint64, error) {
 	s, err := ReadString(path)
 	if err != nil {
