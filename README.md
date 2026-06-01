@@ -19,7 +19,7 @@ kdamond 配置文件格式如下：
 
 ```json
 {
-  "ops": "vaddr",
+  "ops": "paddr",
   "monitoring_attrs": {
     "sample_us": 5000,
     "aggr_us": 100000,
