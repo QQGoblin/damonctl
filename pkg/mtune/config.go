@@ -1,0 +1,73 @@
+package mtune
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
+
+type Config struct {
+	Reclaim ReclaimConfig `json:"reclaim"`
+	Tune    TuneConfig    `json:"tune"`
+}
+
+type ReclaimConfig struct {
+	MinAge               string `json:"min_age"`
+	MinNrRegions         string `json:"min_nr_regions"`
+	MaxNrRegions         string `json:"max_nr_regions"`
+	SampleInterval       string `json:"sample_interval"`
+	AggrInterval         string `json:"aggr_interval"`
+	QuotaMs              string `json:"quota_ms"`
+	QuotaSz              string `json:"quota_sz"`
+	QuotaResetIntervalMs string `json:"quota_reset_interval_ms"`
+	WmarksHigh           string `json:"wmarks_high"`
+	WmarksMid            string `json:"wmarks_mid"`
+	WmarksLow            string `json:"wmarks_low"`
+	MonitorRegionStart   string `json:"monitor_region_start"`
+	MonitorRegionEnd     string `json:"monitor_region_end"`
+}
+
+type TuneConfig struct {
+	Interval       int64   `json:"interval"`
+	AvailableBytes int64   `json:"available_bytes"`
+	AvailableRatio float64 `json:"available_ratio"`
+	DeadRatio      float64 `json:"dead_ratio"`
+	QuotaSzMin     int64   `json:"quota_sz_min"`
+	QuotaSzMax     int64   `json:"quota_sz_max"`
+	MaxStep        int64   `json:"step"`
+	Gain           float64 `json:"gain"`
+}
+
+func DefaultTuneConfig() TuneConfig {
+	return TuneConfig{
+		Interval:       120,
+		AvailableBytes: 20 * 1024 * 1024 * 1024,
+		AvailableRatio: 0.10,
+		DeadRatio:      0.05,
+		QuotaSzMin:     128 * 1024 * 1024,
+		QuotaSzMax:     2 * 1024 * 1024 * 1024,
+		MaxStep:        256 * 1024 * 1024,
+		Gain:           0.1,
+	}
+}
+
+func LoadConfig(path string) (Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return Config{}, fmt.Errorf("read config %s: %w", path, err)
+	}
+
+	cfg := Config{Tune: DefaultTuneConfig()}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return Config{}, fmt.Errorf("parse config %s: %w", path, err)
+	}
+
+	if cfg.Reclaim == (ReclaimConfig{}) {
+		var flat ReclaimConfig
+		if err := json.Unmarshal(data, &flat); err == nil {
+			cfg.Reclaim = flat
+		}
+	}
+
+	return cfg, nil
+}

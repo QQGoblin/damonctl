@@ -1,0 +1,12 @@
+[Unit]
+Description=Damon Reclaim Controller
+After=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mtune
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

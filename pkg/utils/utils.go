@@ -24,10 +24,7 @@ func ReadInt(path string) (int, error) {
 }
 
 func WriteString(path, value string) error {
-	if err := os.WriteFile(path, []byte(value), 0o600); err != nil {
-		return fmt.Errorf("write %q to %s: %w", value, path, err)
-	}
-	return nil
+	return os.WriteFile(path, []byte(value), 0o600)
 }
 
 func WriteInt(path string, value int) error {
@@ -52,23 +49,50 @@ func ReadUint64(path string) (uint64, error) {
 }
 
 func HostMemTotal() (int64, error) {
+	return meminfoBytes("MemTotal")
+}
+
+func HostMemAvailable() (int64, error) {
+	return meminfoBytes("MemAvailable")
+}
+
+func meminfoBytes(key string) (int64, error) {
 	data, err := os.ReadFile("/proc/meminfo")
 	if err != nil {
 		return 0, fmt.Errorf("read /proc/meminfo: %w", err)
 	}
+	prefix := key + ":"
 	for _, line := range strings.Split(string(data), "\n") {
-		if !strings.HasPrefix(line, "MemTotal:") {
+		if !strings.HasPrefix(line, prefix) {
 			continue
 		}
 		fields := strings.Fields(line)
 		if len(fields) < 2 {
-			return 0, fmt.Errorf("unexpected MemTotal line: %s", line)
+			return 0, fmt.Errorf("unexpected %s line: %s", key, line)
 		}
 		kb, err := strconv.ParseInt(fields[1], 10, 64)
 		if err != nil {
-			return 0, fmt.Errorf("parse MemTotal value %q: %w", fields[1], err)
+			return 0, fmt.Errorf("parse %s value %q: %w", key, fields[1], err)
 		}
 		return kb * 1024, nil
 	}
-	return 0, fmt.Errorf("MemTotal not found in /proc/meminfo")
+	return 0, fmt.Errorf("%s not found in /proc/meminfo", key)
+}
+
+func PrettyBytes(b int64) string {
+	const unit = 1024
+	if b < 0 {
+		return "-" + PrettyBytes(-b)
+	}
+	if b < unit {
+		return fmt.Sprintf("%dB", b)
+	}
+	value := float64(b)
+	suffixes := []string{"KiB", "MiB", "GiB", "TiB", "PiB", "EiB"}
+	i := 0
+	for value >= unit && i < len(suffixes) {
+		value /= unit
+		i++
+	}
+	return fmt.Sprintf("%.2f%s", value, suffixes[i-1])
 }
