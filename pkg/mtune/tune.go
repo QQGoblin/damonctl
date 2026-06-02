@@ -66,6 +66,10 @@ func (p *Controller) tuneOnce() error {
 
 	newQuotaSz := p.nextQuotaSz(target, available)
 	if newQuotaSz < 0 || math.Abs(float64(newQuotaSz-p.quotaSz)) < 16*1024*1024 {
+		logrus.WithFields(logrus.Fields{
+			"current": utils.PrettyBytes(newQuotaSz),
+			"target":  utils.PrettyBytes(target - available),
+		}).Info("the changes are too minor, skip.")
 		return nil
 	}
 
