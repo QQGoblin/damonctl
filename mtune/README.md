@@ -32,8 +32,7 @@
     "dead_ratio": 0.05,
     "quota_sz_min": 134217728,
     "quota_sz_max": 2147483648,
-    "step": 268435456,
-    "gain": 0.1
+    "gain": 10
   }
 }
 ```
@@ -53,7 +52,7 @@
 | `quota_sz_min`    | int   | `134217728` (128 MiB)  | `quota_sz` 下限（即使内存充裕也不低于此值，保证基础回收能力）                               |
 | `quota_sz_max`    | int   | `8589934592` (8 GiB)   | `quota_sz` 上限（防止回收过猛拖垮业务）                                          |
 | `step`            | int   | `268435456` (256 MiB)  | 单次调整的步长上限                                                          |
-| `gain`            | float | `0.1`                  | 经验值取值为 0～1， 表示 damon_reclaim 回收成功比例， 通常情况下为 0.1。                   |
+| `gain`            | float | `10`                   | 含义 damon_reclaim 回收成功比例，即每成功回合 1GB 内存，需要对 gain 倍大小的内存尝试回收          |
 
 ### 2 控制律
 

@@ -65,7 +65,7 @@ func (p *Controller) tuneOnce() error {
 	}
 
 	newQuotaSz := p.nextQuotaSz(target, available)
-	if newQuotaSz < 0 {
+	if newQuotaSz < 0 || math.Abs(float64(newQuotaSz-p.quotaSz)) < 16*1024*1024 {
 		return nil
 	}
 
@@ -78,10 +78,9 @@ func (p *Controller) tuneOnce() error {
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"old":       utils.PrettyBytes(p.quotaSz),
-		"current":   utils.PrettyBytes(newQuotaSz),
-		"target":    utils.PrettyBytes(target),
-		"available": utils.PrettyBytes(available),
+		"old":     utils.PrettyBytes(p.quotaSz),
+		"current": utils.PrettyBytes(newQuotaSz),
+		"target":  utils.PrettyBytes(target - available),
 	}).Info("update quota_sz")
 
 	p.quotaSz = newQuotaSz
@@ -115,9 +114,14 @@ func (p *Controller) nextQuotaSz(target, current int64) int64 {
 		return -1
 	}
 
-	targetReclaimSZ := int64(float64(gap) / float64(p.tuneConfig.Interval) / p.tuneConfig.Gain)
-	delta := clampInt64(targetReclaimSZ-p.quotaSz, -p.tuneConfig.MaxStep, p.tuneConfig.MaxStep)
-	next := clampInt64(p.quotaSz+delta, p.tuneConfig.QuotaSzMin, p.tuneConfig.QuotaSzMax)
+	// available 内存已经达到目标值，设置 quotaSz 为 QuotaSzMin
+	if gap < 0 {
+		return p.tuneConfig.QuotaSzMin
+	}
+
+	// available 未达到目标值，基于当前差值调节 quotaSz
+	targetReclaimSZ := int64(float64(gap) / float64(p.tuneConfig.Interval) * p.tuneConfig.Gain) // 理想值
+	next := clampInt64(targetReclaimSZ, p.tuneConfig.QuotaSzMin, p.tuneConfig.QuotaSzMax)       // 计算新值
 	return next
 }
 

@@ -34,7 +34,6 @@ type TuneConfig struct {
 	DeadRatio      float64 `json:"dead_ratio"`
 	QuotaSzMin     int64   `json:"quota_sz_min"`
 	QuotaSzMax     int64   `json:"quota_sz_max"`
-	MaxStep        int64   `json:"step"`
 	Gain           float64 `json:"gain"`
 }
 
@@ -44,10 +43,9 @@ func DefaultTuneConfig() TuneConfig {
 		AvailableBytes: 20 * 1024 * 1024 * 1024,
 		AvailableRatio: 0.10,
 		DeadRatio:      0.05,
-		QuotaSzMin:     128 * 1024 * 1024,
-		QuotaSzMax:     2 * 1024 * 1024 * 1024,
-		MaxStep:        256 * 1024 * 1024,
-		Gain:           0.1,
+		QuotaSzMin:     64 * 1024 * 1024,
+		QuotaSzMax:     1 * 1024 * 1024 * 1024,
+		Gain:           10,
 	}
 }
 

@@ -35,7 +35,7 @@ kdamond 配置文件格式如下：
     { "start": 8589934592,
       "end": 17179869184
     }
-  ]
+  ],
   "schemes": [
     {
       "action": "pageout",
