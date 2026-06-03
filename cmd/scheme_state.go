@@ -57,7 +57,7 @@ per-region details along with summary statistics.`,
 
 		for _, st := range allSchemes {
 
-			fmt.Printf("\n" + formatTitle(fmt.Sprintf(" Scheme %d ", st.SchemeID), 90, "=") + "\n")
+			fmt.Printf("\n%s\n", formatTitle(fmt.Sprintf(" Scheme %d ", st.SchemeID), 90, "="))
 			if len(st.Regions) == 0 {
 				fmt.Println("  (no tried regions)")
 				continue
