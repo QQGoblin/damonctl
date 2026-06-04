@@ -3,10 +3,11 @@ package mtune
 import (
 	"errors"
 	"fmt"
-	"github.com/QQGoblin/damonctl/pkg/utils"
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/QQGoblin/damonctl/pkg/utils"
 )
 
 const defaultReclaimParameters = "/sys/module/damon_reclaim/parameters"
@@ -16,8 +17,9 @@ var ErrModuleNotAvailable = errors.New("damon_reclaim module is not available")
 type Controller struct {
 	reclaimConfig *ReclaimConfig
 	tuneConfig    *TuneConfig
-	quotaSz       int64
-	aggrSec       int64
+	quotaSz       uint64
+	aggrSec       uint64
+	lastSomePsiUs uint64
 }
 
 func NewController(cfg Config) (*Controller, error) {
@@ -41,12 +43,12 @@ func (p *Controller) Read(name string) (string, error) {
 	return utils.ReadString(filepath.Join(defaultReclaimParameters, name))
 }
 
-func (p *Controller) ReadInt64(name string) (int64, error) {
+func (p *Controller) ReadUInt64(name string) (uint64, error) {
 	data, err := utils.ReadString(filepath.Join(defaultReclaimParameters, name))
 	if err != nil {
 		return 0, err
 	}
-	return strconv.ParseInt(data, 10, 64)
+	return strconv.ParseUint(data, 10, 64)
 }
 
 func (p *Controller) Enabled() error {
@@ -78,11 +80,11 @@ func (p *Controller) Initialize(cfg ReclaimConfig) error {
 	}
 	monitorEnd := cfg.MonitorRegionEnd
 	if monitorEnd == "" {
-		total, err := utils.HostMemTotal()
+		memInfo, err := utils.HostMemInfo()
 		if err != nil {
-			return fmt.Errorf("default monitor_region_end: %w", err)
+			return err
 		}
-		monitorEnd = strconv.FormatInt(total, 10)
+		monitorEnd = strconv.FormatUint(*memInfo.MemTotalBytes, 10)
 	}
 
 	parameters := map[string]string{

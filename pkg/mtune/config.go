@@ -29,12 +29,14 @@ type ReclaimConfig struct {
 
 type TuneConfig struct {
 	Interval       int64   `json:"interval"`
-	AvailableBytes int64   `json:"available_bytes"`
+	AvailableBytes uint64  `json:"available_bytes"`
 	AvailableRatio float64 `json:"available_ratio"`
 	DeadRatio      float64 `json:"dead_ratio"`
-	QuotaSzMin     int64   `json:"quota_sz_min"`
-	QuotaSzMax     int64   `json:"quota_sz_max"`
+	QuotaSzMin     uint64  `json:"quota_sz_min"`
+	QuotaSzMax     uint64  `json:"quota_sz_max"`
 	Gain           float64 `json:"gain"`
+	SomePsiUs      uint64  `json:"some_psi_us"`
+	PsiDeadRatio   float64 `json:"psi_dead_ratio"`
 }
 
 func DefaultTuneConfig() TuneConfig {
@@ -46,6 +48,8 @@ func DefaultTuneConfig() TuneConfig {
 		QuotaSzMin:     64 * 1024 * 1024,
 		QuotaSzMax:     1 * 1024 * 1024 * 1024,
 		Gain:           10,
+		SomePsiUs:      1 * 1000 * 1000,
+		PsiDeadRatio:   0.05,
 	}
 }
 

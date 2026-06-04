@@ -3,31 +3,37 @@ package mtune
 import (
 	"context"
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 
+	"github.com/prometheus/procfs"
 	"github.com/sirupsen/logrus"
 
 	"github.com/QQGoblin/damonctl/pkg/utils"
 )
 
 func (p *Controller) Run(ctx context.Context) error {
-
 	var (
 		err          error
-		aggrInterval int64
+		aggrInterval uint64
+		memPSI       procfs.PSIStats
 	)
 
-	if p.quotaSz, err = p.ReadInt64("quota_sz"); err != nil {
+	if p.quotaSz, err = p.ReadUInt64("quota_sz"); err != nil {
 		return err
 	}
 
-	if aggrInterval, err = p.ReadInt64("aggr_interval"); err != nil {
+	if memPSI, err = utils.HostMemoryPSIStats(); err != nil {
+		return err
+	}
+
+	p.lastSomePsiUs = memPSI.Some.Total
+
+	if aggrInterval, err = p.ReadUInt64("aggr_interval"); err != nil {
 		return err
 	}
 	p.aggrSec = aggrInterval / 1000000
-	adjustInterval := time.Duration(p.tuneConfig.Interval*p.aggrSec) * time.Second
+	adjustInterval := time.Duration(uint64(p.tuneConfig.Interval)*p.aggrSec) * time.Second
 
 	if adjustInterval < time.Second {
 		return fmt.Errorf("interval too small (%d < 1s)", adjustInterval)
@@ -49,31 +55,34 @@ func (p *Controller) Run(ctx context.Context) error {
 }
 
 func (p *Controller) tuneOnce() error {
-
 	var (
-		err       error
-		target    int64
-		available int64
+		err          error
+		target       uint64
+		available    uint64
+		somePsiDelta uint64
+		memInfo      procfs.Meminfo
 	)
 
-	if target, err = p.target(); err != nil {
+	if memInfo, err = utils.HostMemInfo(); err != nil {
+		return err
+	}
+	available = *memInfo.MemAvailableBytes
+
+	if target, err = p.targetMemory(); err != nil {
+		return err
+	}
+	if somePsiDelta, err = p.somePsiDelta(); err != nil {
 		return err
 	}
 
-	if available, err = utils.HostMemAvailable(); err != nil {
-		return err
-	}
-
-	newQuotaSz := p.nextQuotaSz(target, available)
-	if newQuotaSz < 0 || math.Abs(float64(newQuotaSz-p.quotaSz)) < 16*1024*1024 {
-		logrus.WithFields(logrus.Fields{
-			"current": utils.PrettyBytes(newQuotaSz),
-			"target":  utils.PrettyBytes(target - available),
-		}).Info("the changes are too minor, skip.")
+	availableQuotaSz := p.nextAvailableQuotaSz(target, available)
+	psiQuotaCap := p.nextPsiQuotaCap(somePsiDelta)
+	newQuotaSz := p.nextQuotaSz(availableQuotaSz, psiQuotaCap)
+	if newQuotaSz <= 0 || utils.DiffUInt64(newQuotaSz, p.quotaSz) < 16*1024*1024 {
 		return nil
 	}
 
-	if err = p.Update("quota_sz", strconv.FormatInt(newQuotaSz, 10)); err != nil {
+	if err = p.Update("quota_sz", strconv.FormatUint(newQuotaSz, 10)); err != nil {
 		return err
 	}
 
@@ -82,26 +91,28 @@ func (p *Controller) tuneOnce() error {
 	}
 
 	logrus.WithFields(logrus.Fields{
-		"old":     utils.PrettyBytes(p.quotaSz),
-		"current": utils.PrettyBytes(newQuotaSz),
-		"target":  utils.PrettyBytes(target - available),
+		"Memory":           utils.PrettyBytes(available),
+		"PSIState":         somePsiDelta,
+		"QuotaSZ":          utils.PrettyBytes(newQuotaSz),
+		"AvailableQuotaSz": utils.PrettyBytes(availableQuotaSz),
+		"PSIQuotaCap":      utils.PrettyBytes(psiQuotaCap),
 	}).Info("update quota_sz")
 
 	p.quotaSz = newQuotaSz
 	return nil
 }
 
-func (p *Controller) target() (int64, error) {
-
+func (p *Controller) targetMemory() (uint64, error) {
 	var (
-		totalMemory int64
-		err         error
+		err     error
+		memInfo procfs.Meminfo
 	)
 
-	if totalMemory, err = utils.HostMemTotal(); err != nil {
+	if memInfo, err = utils.HostMemInfo(); err != nil {
 		return 0, err
 	}
-	ratioTarget := int64(float64(totalMemory) * p.tuneConfig.AvailableRatio)
+
+	ratioTarget := uint64(float64(*memInfo.MemTotalBytes) * p.tuneConfig.AvailableRatio)
 	if p.tuneConfig.AvailableBytes < ratioTarget {
 		return p.tuneConfig.AvailableBytes, nil
 	}
@@ -109,32 +120,63 @@ func (p *Controller) target() (int64, error) {
 	return ratioTarget, nil
 }
 
-func (p *Controller) nextQuotaSz(target, current int64) int64 {
+func (p *Controller) somePsiDelta() (uint64, error) {
+	var (
+		memPSI procfs.PSIStats
+		err    error
+	)
 
-	gap := target - current
-	deadBand := int64(float64(target) * p.tuneConfig.DeadRatio)
-
-	if math.Abs(float64(gap)) < float64(deadBand) {
-		return -1
+	if memPSI, err = utils.HostMemoryPSIStats(); err != nil {
+		return 0, err
 	}
 
-	// available 内存已经达到目标值，设置 quotaSz 为 QuotaSzMin
-	if gap < 0 {
+	delta := memPSI.Some.Total - p.lastSomePsiUs
+	p.lastSomePsiUs = memPSI.Some.Total
+	return delta, nil
+}
+
+func (p *Controller) nextAvailableQuotaSz(target, current uint64) uint64 {
+	gap := utils.DiffUInt64(target, current)
+	deadBand := uint64(float64(target) * p.tuneConfig.DeadRatio)
+	// available 已经超出目标值，减少回收配额
+	if current > target && gap >= deadBand {
 		return p.tuneConfig.QuotaSzMin
 	}
 
+	if gap < deadBand {
+		return p.quotaSz
+	}
+
 	// available 未达到目标值，基于当前差值调节 quotaSz
-	targetReclaimSZ := int64(float64(gap) / float64(p.tuneConfig.Interval) * p.tuneConfig.Gain) // 理想值
-	next := clampInt64(targetReclaimSZ, p.tuneConfig.QuotaSzMin, p.tuneConfig.QuotaSzMax)       // 计算新值
+	targetReclaimSZ := uint64(float64(gap) / float64(p.tuneConfig.Interval) * p.tuneConfig.Gain) // 理想值
+	next := utils.ClampUInt64(targetReclaimSZ, p.tuneConfig.QuotaSzMin, p.tuneConfig.QuotaSzMax) // 计算新值
 	return next
 }
 
-func clampInt64(v, lo, hi int64) int64 {
-	if v < lo {
-		return lo
+func (p *Controller) nextPsiQuotaCap(somePsiDelta uint64) uint64 {
+	target := p.tuneConfig.SomePsiUs
+	deadBand := uint64(float64(target) * p.tuneConfig.PsiDeadRatio)
+
+	// PSI 压力变化较小
+	if utils.DiffUInt64(somePsiDelta, target) < deadBand {
+		return utils.ClampUInt64(p.quotaSz, p.tuneConfig.QuotaSzMin, p.tuneConfig.QuotaSzMax)
 	}
-	if v > hi {
-		return hi
+
+	// PSI 压力超过目标 2 倍
+	if somePsiDelta >= target*2 {
+		return p.tuneConfig.QuotaSzMin
 	}
-	return v
+
+	// 对 PSI 指标进行线行折算
+	ratio := float64(somePsiDelta) / float64(target)
+	next := uint64(float64(p.quotaSz) * (2 - ratio))
+	return utils.ClampUInt64(next, p.tuneConfig.QuotaSzMin, p.tuneConfig.QuotaSzMax)
+}
+
+func (p *Controller) nextQuotaSz(availableQuotaSz, psiQuotaCap uint64) uint64 {
+	if availableQuotaSz <= 0 {
+		availableQuotaSz = p.quotaSz
+	}
+	requireQuotaSz := utils.MinUInt64(psiQuotaCap, availableQuotaSz)
+	return utils.ClampUInt64(requireQuotaSz, p.tuneConfig.QuotaSzMin, p.tuneConfig.QuotaSzMax)
 }

@@ -192,11 +192,11 @@ func (k *Kdamon) setupPaddrTarget(regions []AddrRange) error {
 	}
 
 	if len(regions) == 0 {
-		hostTotalMemory, err := utils.HostMemTotal()
+		memInfo, err := utils.HostMemInfo()
 		if err != nil {
-			return fmt.Errorf("get host_total_memory: %w", err)
+			return fmt.Errorf("/proc/meminfo: %w", err)
 		}
-		regions = []AddrRange{{Start: 0, End: uint64(hostTotalMemory)}}
+		regions = []AddrRange{{Start: 0, End: *memInfo.MemTotalBytes}}
 	}
 
 	for i, r := range regions {
