@@ -1,7 +1,8 @@
 # mtune
 
 `mtune` 是一个常驻守护进程，根据当前主机的内存压力，**反馈式地自动调优内核 `damon_reclaim` 模块的参数**（主要是 `quota_sz`
-）。它采用 hybrid 控制：用 `MemAvailable` 计算需要的回收力度，再用 `memory some PSI` 计算允许的回收上限，从而在「可用内存水位」与「业务 stall 开销」之间取得平衡。
+）。它采用 hybrid 控制：用 `MemAvailable` 计算需要的回收力度，再用 `memory some PSI` 计算允许的回收上限，从而在「可用内存水位」与「业务
+stall 开销」之间取得平衡。
 
 ## 2. 配置文件
 
@@ -32,35 +33,40 @@
     "quota_sz_max": 2147483648,
     "gain": 10,
     "some_psi_us": 600000,
-    "psi_dead_ratio": 0.05
+    "psi_dead_ratio": 0.05,
+    "cold_ratio_threshold": 0.45
   }
 }
 ```
 
 ## 3. 调优算法
 
-`mtune` 通过控制内核 `damon_reclaim` 模块（`/sys/module/damon_reclaim/parameters/`）的 `quota_sz` 大小，使主机可用内存维持在期望大小，同时限制 DAMON_RECLAIM 自身带来的 memory stall。
+`mtune` 通过控制内核 `damon_reclaim` 模块（`/sys/module/damon_reclaim/parameters/`）的 `quota_sz` 大小，使主机可用内存维持在期望大小，同时限制
+DAMON_RECLAIM 自身带来的 memory stall。
 
 ### 1. 控制参数
 
-| 字段                | 类型    | 默认                     | 说明                                                                 |
-|-------------------|-------|------------------------|--------------------------------------------------------------------|
-| `interval`        | int   | `60`                   | 每 N 个 aggr_interval 调整一次 quota_sz 参数                               |
-| `available_bytes` | int   | `21474836480` (20 GiB) | 目标可用内存的上限                                                          |
-| `available_ratio` | float | `0.10`                 | 目标可用内存占 `MemTotal` 的比例                                             |
-| `dead_ratio`      | float | `0.05`                 | 死区比例，`MemAvailable` 落在 `target ± target*deadband_ratio` 内时不调参，抑制抖动 |
-| `quota_sz_min`    | int   | `134217728` (128 MiB)  | `quota_sz` 下限（即使内存充裕也不低于此值，保证基础回收能力）                               |
-| `quota_sz_max`    | int   | `2147483648` (2 GiB)   | `quota_sz` 上限（防止回收过猛拖垮业务）                                          |
-| `gain`            | float | `10`                   | 含义 damon_reclaim 回收成功比例，即每成功回合 1GB 内存，需要对 gain 倍大小的内存尝试回收          |
-| `some_psi_us`     | int   | `1000000`              | 每个调优周期内允许的 `/proc/pressure/memory` 中 `some total` 增量，单位 us                  |
-| `psi_dead_ratio`  | float | `0.05`                 | PSI 目标死区比例，`some` PSI 落在 `target ± target*psi_dead_ratio` 内时保持 PSI 上限不变       |
+| 字段                | 类型    | 默认                     | 说明                                                                     |
+|-------------------|-------|------------------------|------------------------------------------------------------------------|
+| `interval`        | int   | `60`                   | 每 N 个 aggr_interval 调整一次 quota_sz 参数                                   |
+| `available_bytes` | int   | `21474836480` (20 GiB) | 目标可用内存的上限                                                              |
+| `available_ratio` | float | `0.10`                 | 目标可用内存占 `MemTotal` 的比例                                                 |
+| `dead_ratio`      | float | `0.05`                 | 死区比例，`MemAvailable` 落在 `target ± target*deadband_ratio` 内时不调参，抑制抖动     |
+| `quota_sz_min`    | int   | `134217728` (128 MiB)  | `quota_sz` 下限（即使内存充裕也不低于此值，保证基础回收能力）                                   |
+| `quota_sz_max`    | int   | `2147483648` (2 GiB)   | `quota_sz` 上限（防止回收过猛拖垮业务）                                              |
+| `gain`            | float | `10`                   | 含义 damon_reclaim 回收成功比例，即每成功回合 1GB 内存，需要对 gain 倍大小的内存尝试回收              |
+| `some_psi_us`     | int   | `1000000`              | 每个调优周期内允许的 `/proc/pressure/memory` 中 `some total` 增量，单位 us             |
+| `psi_dead_ratio`  | float | `0.05`                 | PSI 目标死区比例，`some` PSI 落在 `target ± target*psi_dead_ratio` 内时保持 PSI 上限不变 |
+| `overload`        | float | `1.90`                 | 主机超配阈值，达到阈值后强制把 `quota_sz` 降到 `quota_sz_min` 避免反复 swapout 导致缩短swap设备寿命 |
 
 ### 2. Hybrid 控制
 
 每个调优周期内，`mtune` 同时计算两个值：
 
-- `available_quota`：由 `MemAvailable` 缺口计算出的回收需求；如果可用内存已经超过目标，则降到 `quota_sz_min`；如果位于死区内，则保持当前值。
-- `psi_quota_cap`：由本周期 `memory some PSI` 增量计算出的回收上限；PSI 低于目标时上限放宽，PSI 高于目标时上限收缩，达到目标两倍及以上时降到 `quota_sz_min`。
+- `available_quota`：如果主机已经达到超配阈值 `overload`，则不再考虑剩余内存水位，直接降到 `quota_sz_min`；否则由 `MemAvailable`
+  缺口计算回收需求，把可用内存调节到目标值附近；如果位于死区内，则保持当前值。
+- `psi_quota_cap`：由本周期 `memory some PSI` 增量计算出的回收上限；PSI 低于目标时上限放宽，PSI
+  高于目标时上限收缩，达到目标两倍及以上时降到 `quota_sz_min`。
 
 最终写入值为：
 

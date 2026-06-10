@@ -56,17 +56,19 @@ func (p *Controller) Run(ctx context.Context) error {
 
 func (p *Controller) tuneOnce() error {
 	var (
-		err          error
-		target       uint64
-		available    uint64
-		somePsiDelta uint64
-		memInfo      procfs.Meminfo
+		err           error
+		target        uint64
+		available     uint64
+		overloadRatio float64
+		somePsiDelta  uint64
+		memInfo       procfs.Meminfo
 	)
 
 	if memInfo, err = utils.HostMemInfo(); err != nil {
 		return err
 	}
 	available = *memInfo.MemAvailableBytes
+	overloadRatio = hostOverloadRatio(memInfo)
 
 	if target, err = p.targetMemory(); err != nil {
 		return err
@@ -75,10 +77,21 @@ func (p *Controller) tuneOnce() error {
 		return err
 	}
 
-	availableQuotaSz := p.nextAvailableQuotaSz(target, available)
+	availableQuotaSz := p.nextAvailableQuotaSz(target, available, overloadRatio)
 	psiQuotaCap := p.nextPsiQuotaCap(somePsiDelta)
 	newQuotaSz := p.nextQuotaSz(availableQuotaSz, psiQuotaCap)
+
+	logFields := logrus.Fields{
+		"Memory":           utils.PrettyBytes(available),
+		"PSIState":         somePsiDelta,
+		"QuotaSZ":          utils.PrettyBytes(newQuotaSz),
+		"AvailableQuotaSz": utils.PrettyBytes(availableQuotaSz),
+		"PSIQuotaCap":      utils.PrettyBytes(psiQuotaCap),
+		"Overload":         fmt.Sprintf("%.4f", overloadRatio),
+	}
+
 	if newQuotaSz <= 0 || utils.DiffUInt64(newQuotaSz, p.quotaSz) < 16*1024*1024 {
+		logrus.WithFields(logFields).Info("skip quota_sz update")
 		return nil
 	}
 
@@ -90,13 +103,7 @@ func (p *Controller) tuneOnce() error {
 		return err
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"Memory":           utils.PrettyBytes(available),
-		"PSIState":         somePsiDelta,
-		"QuotaSZ":          utils.PrettyBytes(newQuotaSz),
-		"AvailableQuotaSz": utils.PrettyBytes(availableQuotaSz),
-		"PSIQuotaCap":      utils.PrettyBytes(psiQuotaCap),
-	}).Info("update quota_sz")
+	logrus.WithFields(logFields).Info("update quota_sz success")
 
 	p.quotaSz = newQuotaSz
 	return nil
@@ -135,7 +142,11 @@ func (p *Controller) somePsiDelta() (uint64, error) {
 	return delta, nil
 }
 
-func (p *Controller) nextAvailableQuotaSz(target, current uint64) uint64 {
+func (p *Controller) nextAvailableQuotaSz(target, current uint64, overloadRatio float64) uint64 {
+	if p.minQuotaByOverloadRatio(overloadRatio) {
+		return p.tuneConfig.QuotaSzMin
+	}
+
 	gap := utils.DiffUInt64(target, current)
 	deadBand := uint64(float64(target) * p.tuneConfig.DeadRatio)
 	// available 已经超出目标值，减少回收配额
@@ -151,6 +162,18 @@ func (p *Controller) nextAvailableQuotaSz(target, current uint64) uint64 {
 	targetReclaimSZ := uint64(float64(gap) / float64(p.tuneConfig.Interval) * p.tuneConfig.Gain) // 理想值
 	next := utils.ClampUInt64(targetReclaimSZ, p.tuneConfig.QuotaSzMin, p.tuneConfig.QuotaSzMax) // 计算新值
 	return next
+}
+
+func (p *Controller) minQuotaByOverloadRatio(overloadRatio float64) bool {
+	threshold := p.tuneConfig.OverloadThreshold
+	return threshold > 0 && overloadRatio >= threshold
+}
+
+func hostOverloadRatio(memInfo procfs.Meminfo) float64 {
+	memCap := *memInfo.MemTotalBytes - *memInfo.HugetlbBytes
+	memUsed := *memInfo.MemTotalBytes - *memInfo.MemAvailableBytes - *memInfo.HugetlbBytes
+	swapUsed := *memInfo.SwapTotalBytes - *memInfo.SwapFreeBytes - *memInfo.SwapCachedBytes
+	return float64(swapUsed+memUsed) / float64(memCap)
 }
 
 func (p *Controller) nextPsiQuotaCap(somePsiDelta uint64) uint64 {

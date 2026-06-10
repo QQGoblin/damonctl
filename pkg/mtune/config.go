@@ -28,28 +28,30 @@ type ReclaimConfig struct {
 }
 
 type TuneConfig struct {
-	Interval       int64   `json:"interval"`
-	AvailableBytes uint64  `json:"available_bytes"`
-	AvailableRatio float64 `json:"available_ratio"`
-	DeadRatio      float64 `json:"dead_ratio"`
-	QuotaSzMin     uint64  `json:"quota_sz_min"`
-	QuotaSzMax     uint64  `json:"quota_sz_max"`
-	Gain           float64 `json:"gain"`
-	SomePsiUs      uint64  `json:"some_psi_us"`
-	PsiDeadRatio   float64 `json:"psi_dead_ratio"`
+	Interval          int64   `json:"interval"`
+	AvailableBytes    uint64  `json:"available_bytes"`
+	AvailableRatio    float64 `json:"available_ratio"`
+	DeadRatio         float64 `json:"dead_ratio"`
+	QuotaSzMin        uint64  `json:"quota_sz_min"`
+	QuotaSzMax        uint64  `json:"quota_sz_max"`
+	Gain              float64 `json:"gain"`
+	SomePsiUs         uint64  `json:"some_psi_us"`
+	PsiDeadRatio      float64 `json:"psi_dead_ratio"`
+	OverloadThreshold float64 `json:"overload"`
 }
 
 func DefaultTuneConfig() TuneConfig {
 	return TuneConfig{
-		Interval:       120,
-		AvailableBytes: 20 * 1024 * 1024 * 1024,
-		AvailableRatio: 0.10,
-		DeadRatio:      0.05,
-		QuotaSzMin:     64 * 1024 * 1024,
-		QuotaSzMax:     1 * 1024 * 1024 * 1024,
-		Gain:           10,
-		SomePsiUs:      1 * 1000 * 1000,
-		PsiDeadRatio:   0.05,
+		Interval:          120,
+		AvailableBytes:    20 * 1024 * 1024 * 1024,
+		AvailableRatio:    0.10,
+		DeadRatio:         0.05,
+		QuotaSzMin:        64 * 1024 * 1024,
+		QuotaSzMax:        1 * 1024 * 1024 * 1024,
+		Gain:              10,
+		SomePsiUs:         1 * 1000 * 1000,
+		PsiDeadRatio:      0.05,
+		OverloadThreshold: 1.90,
 	}
 }
 
